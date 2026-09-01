@@ -1,0 +1,26 @@
+.app {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: auto 1fr;
+  overflow-x: hidden;
+}
+
+.app > .board {
+  min-height: 0;
+}
+
+.appHeader {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #d7dce2;
+  background: #ffffff;
+}
+
+.appHeader h1,
+.appHeader p {
+  margin: 0;
+}
+
+.appHeader p {
+  margin-top: 0.25rem;
+  color: #5b6470;
+}
