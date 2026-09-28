@@ -1,10 +1,8 @@
 import { memo, useLayoutEffect, useRef, type PointerEvent } from 'react';
-import type { NoteRect } from './geometry';
 import type { Note, NoteId } from './notes';
 
 interface NoteCardProps {
   note: Note;
-  previewRect: NoteRect | null;
   selected: boolean;
   shouldFocus: boolean;
   onTextChange: (noteId: NoteId, text: string) => void;
@@ -22,7 +20,6 @@ interface NoteCardProps {
 
 function NoteCardComponent({
   note,
-  previewRect,
   selected,
   shouldFocus,
   onTextChange,
@@ -32,8 +29,7 @@ function NoteCardComponent({
   onFocused,
 }: NoteCardProps) {
   const editorRef = useRef<HTMLTextAreaElement>(null);
-
-  const rect = previewRect ?? note.rect;
+  const { rect } = note;
 
   useLayoutEffect(() => {
     if (!shouldFocus) return;

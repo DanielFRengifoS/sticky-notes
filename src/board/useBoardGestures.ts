@@ -30,15 +30,14 @@ type Gesture =
       type: 'creating';
       pointerId: number;
       pointerOrigin: BoardPoint;
-      latestPointer: BoardPoint;
       boardBounds: BoardBounds;
     }
   | {
       type: 'moving';
       pointerId: number;
       noteId: NoteId;
+      element: HTMLElement;
       pointerOrigin: BoardPoint;
-      latestPointer: BoardPoint;
       initialRect: NoteRect;
       boardBounds: BoardBounds;
       trashRect: NoteRect;
@@ -47,28 +46,11 @@ type Gesture =
       type: 'resizing';
       pointerId: number;
       noteId: NoteId;
+      element: HTMLElement;
       pointerOrigin: BoardPoint;
-      latestPointer: BoardPoint;
       initialRect: NoteRect;
       boardBounds: BoardBounds;
     };
-
-interface ActiveNotePreview {
-  noteId: NoteId;
-  rect: NoteRect;
-}
-
-interface PreviewFrame {
-  activeNote: ActiveNotePreview | null;
-  creation: NoteRect | null;
-  trashActive: boolean;
-}
-
-const idlePreview: PreviewFrame = {
-  activeNote: null,
-  creation: null,
-  trashActive: false,
-};
 
 export interface BoardGesturesParams {
   boardSurfaceRef: RefObject<HTMLDivElement | null>;
@@ -109,6 +91,15 @@ function readTrashRect(
   return { x: topLeft.x, y: topLeft.y, width: rect.width, height: rect.height };
 }
 
+function paintNoteElement(element: HTMLElement, from: NoteRect, to: NoteRect) {
+  element.style.transform =
+    to.x === from.x && to.y === from.y
+      ? ''
+      : `translate(${to.x - from.x}px, ${to.y - from.y}px)`;
+  element.style.width = `${to.width}px`;
+  element.style.height = `${to.height}px`;
+}
+
 export function useBoardGestures(params: BoardGesturesParams) {
   // handlers read params through this ref so their identity stays stable across renders
   const paramsRef = useRef(params);
@@ -118,20 +109,14 @@ export function useBoardGestures(params: BoardGesturesParams) {
 
   const gestureRef = useRef<Gesture>({ type: 'idle' });
   const captureTargetRef = useRef<HTMLElement | null>(null);
-  const rafRef = useRef<number | null>(null);
 
-  const [preview, setPreview] = useState<PreviewFrame>(idlePreview);
+  const [creationPreview, setCreationPreview] = useState<NoteRect | null>(null);
+  const [trashActive, setTrashActive] = useState(false);
   const [gestureActive, setGestureActive] = useState(false);
 
-  function cancelPendingFrame() {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }
-
   function clearPreviewState() {
-    setPreview(idlePreview);
+    setCreationPreview(null);
+    setTrashActive(false);
     setGestureActive(false);
   }
 
@@ -143,81 +128,18 @@ export function useBoardGestures(params: BoardGesturesParams) {
     captureTargetRef.current = null;
   }
 
-  const runFrame = useCallback(() => {
-    rafRef.current = null;
-    const gesture = gestureRef.current;
-    switch (gesture.type) {
-      case 'idle':
-        return;
-      case 'creating': {
-        if (
-          !hasReachedCreateThreshold(
-            gesture.pointerOrigin,
-            gesture.latestPointer,
-          )
-        ) {
-          setPreview(idlePreview);
-          return;
-        }
-        setPreview({
-          activeNote: null,
-          creation: createRectFromDrag(
-            gesture.pointerOrigin,
-            gesture.latestPointer,
-            gesture.boardBounds,
-          ),
-          trashActive: false,
-        });
-        return;
-      }
-      case 'moving': {
-        const rect = moveRect(
-          gesture.initialRect,
-          gesture.pointerOrigin,
-          gesture.latestPointer,
-          gesture.boardBounds,
-        );
-        setPreview({
-          activeNote: { noteId: gesture.noteId, rect },
-          creation: null,
-          trashActive: pointInside(gesture.latestPointer, gesture.trashRect),
-        });
-        return;
-      }
-      case 'resizing': {
-        const rect = resizeRect(
-          gesture.initialRect,
-          gesture.pointerOrigin,
-          gesture.latestPointer,
-          gesture.boardBounds,
-        );
-        setPreview({
-          activeNote: { noteId: gesture.noteId, rect },
-          creation: null,
-          trashActive: false,
-        });
-        return;
-      }
-    }
-  }, []);
-
-  const scheduleFrame = useCallback(() => {
-    if (rafRef.current !== null) return;
-    rafRef.current = requestAnimationFrame(runFrame);
-  }, [runFrame]);
-
   const commitActiveGesture = useCallback(
     (pointerId: number, releasePoint: ClientPoint) => {
       const gesture = gestureRef.current;
       if (gesture.type === 'idle') return;
       if (gesture.pointerId !== pointerId) return;
 
-      // commit from the pointerup position, not gesture.latestPointer: the rAF-throttled
-      // preview can be a frame behind and we would persist the stale rect
       const releaseBoardPoint = toBoardPoint(releasePoint, gesture.boardBounds);
       const active = gesture;
       gestureRef.current = { type: 'idle' };
-      cancelPendingFrame();
+      if (active.type !== 'creating') {
+        paintNoteElement(active.element, active.initialRect, active.initialRect);
+      }
 
       switch (active.type) {
         case 'creating': {
@@ -271,7 +193,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
     const capturedPointerId =
       gesture.type === 'idle' ? null : gesture.pointerId;
     gestureRef.current = { type: 'idle' };
-    cancelPendingFrame();
 
     // on unmount the captured element is already going away, so releasing capture and
     // setting preview state are both wrong here
@@ -280,6 +201,9 @@ export function useBoardGestures(params: BoardGesturesParams) {
       return;
     }
 
+    if (gesture.type === 'moving' || gesture.type === 'resizing') {
+      paintNoteElement(gesture.element, gesture.initialRect, gesture.initialRect);
+    }
     clearPreviewState();
     if (capturedPointerId !== null) {
       releaseCaptureIfHeld(capturedPointerId);
@@ -292,6 +216,7 @@ export function useBoardGestures(params: BoardGesturesParams) {
     noteId: NoteId,
     event: PointerEvent<HTMLDivElement>,
     buildGesture: (start: {
+      element: HTMLElement;
       pointerOrigin: BoardPoint;
       initialRect: NoteRect;
       boardBounds: BoardBounds;
@@ -303,6 +228,8 @@ export function useBoardGestures(params: BoardGesturesParams) {
     if (boardSurface === null) return;
     const initialRect = paramsRef.current.getNoteRect(noteId);
     if (initialRect === undefined) return;
+    const element = event.currentTarget.closest<HTMLElement>('.noteCard');
+    if (element === null) return;
 
     event.stopPropagation();
     paramsRef.current.onInteractionStart(noteId);
@@ -313,6 +240,7 @@ export function useBoardGestures(params: BoardGesturesParams) {
       boardBounds,
     );
     gestureRef.current = buildGesture({
+      element,
       pointerOrigin,
       initialRect,
       boardBounds,
@@ -327,12 +255,12 @@ export function useBoardGestures(params: BoardGesturesParams) {
       beginNoteGesture(
         noteId,
         event,
-        ({ pointerOrigin, initialRect, boardBounds }) => ({
+        ({ element, pointerOrigin, initialRect, boardBounds }) => ({
           type: 'moving',
           pointerId: event.pointerId,
           noteId,
+          element,
           pointerOrigin,
-          latestPointer: pointerOrigin,
           initialRect,
           boardBounds,
           trashRect: readTrashRect(
@@ -350,12 +278,12 @@ export function useBoardGestures(params: BoardGesturesParams) {
       beginNoteGesture(
         noteId,
         event,
-        ({ pointerOrigin, initialRect, boardBounds }) => ({
+        ({ element, pointerOrigin, initialRect, boardBounds }) => ({
           type: 'resizing',
           pointerId: event.pointerId,
           noteId,
+          element,
           pointerOrigin,
-          latestPointer: pointerOrigin,
           initialRect,
           boardBounds,
         }),
@@ -387,7 +315,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
         type: 'creating',
         pointerId: event.pointerId,
         pointerOrigin,
-        latestPointer: pointerOrigin,
         boardBounds,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -402,13 +329,50 @@ export function useBoardGestures(params: BoardGesturesParams) {
       const gesture = gestureRef.current;
       if (gesture.type === 'idle') return;
       if (event.pointerId !== gesture.pointerId) return;
-      gesture.latestPointer = toBoardPoint(
+      const point = toBoardPoint(
         { clientX: event.clientX, clientY: event.clientY },
         gesture.boardBounds,
       );
-      scheduleFrame();
+      switch (gesture.type) {
+        case 'creating':
+          setCreationPreview(
+            hasReachedCreateThreshold(gesture.pointerOrigin, point)
+              ? createRectFromDrag(
+                  gesture.pointerOrigin,
+                  point,
+                  gesture.boardBounds,
+                )
+              : null,
+          );
+          return;
+        case 'moving':
+          paintNoteElement(
+            gesture.element,
+            gesture.initialRect,
+            moveRect(
+              gesture.initialRect,
+              gesture.pointerOrigin,
+              point,
+              gesture.boardBounds,
+            ),
+          );
+          setTrashActive(pointInside(point, gesture.trashRect));
+          return;
+        case 'resizing':
+          paintNoteElement(
+            gesture.element,
+            gesture.initialRect,
+            resizeRect(
+              gesture.initialRect,
+              gesture.pointerOrigin,
+              point,
+              gesture.boardBounds,
+            ),
+          );
+          return;
+      }
     },
-    [scheduleFrame],
+    [],
   );
 
   const onBoardPointerUp = useCallback(
@@ -471,9 +435,8 @@ export function useBoardGestures(params: BoardGesturesParams) {
     onBoardPointerUp,
     onBoardPointerCancel,
     onBoardLostPointerCapture,
-    activeNotePreview: preview.activeNote,
-    creationPreview: preview.creation,
-    trashActive: preview.trashActive,
+    creationPreview,
+    trashActive,
     gestureActive,
   };
 }

@@ -105,7 +105,6 @@ export function Board() {
     onBoardPointerUp,
     onBoardPointerCancel,
     onBoardLostPointerCapture,
-    activeNotePreview,
     creationPreview,
     trashActive,
     gestureActive,
@@ -171,11 +170,6 @@ export function Board() {
                 <NoteCard
                   key={note.id}
                   note={note}
-                  previewRect={
-                    activeNotePreview?.noteId === note.id
-                      ? activeNotePreview.rect
-                      : null
-                  }
                   selected={selectedId === note.id}
                   shouldFocus={focusNoteId === note.id}
                   onTextChange={handleTextChange}
