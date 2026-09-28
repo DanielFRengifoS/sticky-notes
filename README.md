@@ -8,10 +8,14 @@ I wrote the pointer handling straight against the Pointer Events API instead of 
 
 ## Running it
 
+Use Node.js 24 LTS (or Node.js 22.13+ within the 22.x release line). Run these commands from the folder containing `package.json`:
+
 ```bash
 npm install
 npm run dev
 ```
+
+If you installed dependencies using an older Node.js version, upgrade Node.js and run `npm install` again. npm can skip Vite's native Windows dependency when the Node.js version is unsupported, causing a "Cannot find native binding" error on startup.
 
 `npm run check` is the one to run before pushing: type checker, ESLint, unit tests, production build.
 
