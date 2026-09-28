@@ -92,43 +92,6 @@
   border-radius: 0.5rem;
 }
 
-.trashZone {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 10;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  width: 8.5rem;
-  height: 7rem;
-  padding: 0.4rem 0.5rem;
-  color: var(--trash);
-  background: rgba(176, 39, 31, 0.06);
-  border: 2px dashed var(--trash);
-  border-radius: 0.75rem;
-  pointer-events: none;
-}
-
-.trashZone[data-active='true'] {
-  background: rgba(176, 39, 31, 0.16);
-  border-style: solid;
-  border-width: 3px;
-}
-
-.trashIcon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.trashLabel {
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
 .noteCard {
   position: absolute;
   display: flex;
@@ -156,6 +119,31 @@
   background: rgba(23, 32, 42, 0.08);
   cursor: grab;
   touch-action: none;
+}
+
+.noteDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  color: #5b6470;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.noteDelete:hover {
+  color: var(--trash);
+}
+
+.noteDelete:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .noteEditor {

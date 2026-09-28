@@ -4,7 +4,6 @@ import {
   createRectFromDrag,
   hasReachedCreateThreshold,
   moveRect,
-  pointInside,
   resizeRect,
   type Size,
 } from './geometry';
@@ -105,12 +104,5 @@ describe('geometry', () => {
         board,
       ),
     ).toEqual({ x: 100, y: 100, width: 900, height: 700 });
-  });
-
-  it('treats the trash edge as outside the trash', () => {
-    const trash = { x: 100, y: 100, width: 100, height: 100 };
-    expect(pointInside({ x: 100, y: 150 }, trash)).toBe(false);
-    expect(pointInside({ x: 200, y: 150 }, trash)).toBe(false);
-    expect(pointInside({ x: 150, y: 150 }, trash)).toBe(true);
   });
 });

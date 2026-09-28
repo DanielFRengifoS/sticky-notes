@@ -127,9 +127,3 @@ export function resizeRect(
   );
   return { x, y, width, height };
 }
-
-// strict on all four sides on purpose: a pointer resting exactly on the trash border
-// should not delete the note it is carrying
-export function pointInside(p: BoardPoint, r: NoteRect): boolean {
-  return p.x > r.x && p.x < r.x + r.width && p.y > r.y && p.y < r.y + r.height;
-}

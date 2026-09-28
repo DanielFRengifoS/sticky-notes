@@ -24,7 +24,6 @@ export function Board() {
   const [tool, setTool] = useState<BoardTool>('select');
 
   const boardSurfaceRef = useRef<HTMLDivElement>(null);
-  const trashRef = useRef<HTMLDivElement>(null);
 
   // StrictMode runs the hydrate effect twice; without this gate the second pass reloads
   // storage and throws away edits made after the first
@@ -87,11 +86,11 @@ export function Board() {
     setTool('select');
   }
 
-  function handleRemoveNote(noteId: NoteId) {
+  const handleRemoveNote = useCallback((noteId: NoteId) => {
     dispatch({ type: 'noteRemoved', noteId });
     setSelectedId((current) => (current === noteId ? null : current));
     setFocusNoteId((current) => (current === noteId ? null : current));
-  }
+  }, []);
 
   const handleNoteFocused = useCallback((noteId: NoteId) => {
     setFocusNoteId((prev) => (prev === noteId ? null : prev));
@@ -106,17 +105,14 @@ export function Board() {
     onBoardPointerCancel,
     onBoardLostPointerCapture,
     creationPreview,
-    trashActive,
     gestureActive,
   } = useBoardGestures({
     boardSurfaceRef,
-    trashRef,
     tool,
     getNoteRect: (id: NoteId) => state.notes.find((n) => n.id === id)?.rect,
     onInteractionStart: handleNoteInteraction,
     onCommitRect: handleCommitRect,
     onCreateNote: handleCreateNote,
-    onRemoveNote: handleRemoveNote,
     onDisarmCreateTool: handleDisarmCreateTool,
   });
 
@@ -177,6 +173,7 @@ export function Board() {
                   onHeaderPointerDown={onHeaderPointerDown}
                   onResizePointerDown={onResizePointerDown}
                   onFocused={handleNoteFocused}
+                  onRemove={handleRemoveNote}
                 />
               ))}
             </>
@@ -194,15 +191,6 @@ export function Board() {
               }}
             />
           ) : null}
-
-          <div className="trashZone" ref={trashRef} data-active={trashActive}>
-            <span className="trashIcon" aria-hidden="true">
-              🗑
-            </span>
-            <span className="trashLabel">
-              {trashActive ? 'Release to delete' : 'Trash'}
-            </span>
-          </div>
         </div>
       </div>
     </div>

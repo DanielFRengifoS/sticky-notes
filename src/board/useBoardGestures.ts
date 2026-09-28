@@ -10,7 +10,6 @@ import {
   createRectFromDrag,
   hasReachedCreateThreshold,
   moveRect,
-  pointInside,
   resizeRect,
   toBoardPoint,
   type BoardBounds,
@@ -40,7 +39,6 @@ type Gesture =
       pointerOrigin: BoardPoint;
       initialRect: NoteRect;
       boardBounds: BoardBounds;
-      trashRect: NoteRect;
     }
   | {
       type: 'resizing';
@@ -54,13 +52,11 @@ type Gesture =
 
 export interface BoardGesturesParams {
   boardSurfaceRef: RefObject<HTMLDivElement | null>;
-  trashRef: RefObject<HTMLDivElement | null>;
   tool: BoardTool;
   getNoteRect: (noteId: NoteId) => NoteRect | undefined;
   onInteractionStart: (noteId: NoteId) => void;
   onCommitRect: (noteId: NoteId, rect: NoteRect) => void;
   onCreateNote: (rect: NoteRect) => void;
-  onRemoveNote: (noteId: NoteId) => void;
   onDisarmCreateTool: () => void;
 }
 
@@ -76,19 +72,6 @@ function readBoardBounds(element: HTMLElement): BoardBounds {
     width: rect.width,
     height: rect.height,
   };
-}
-
-function readTrashRect(
-  trashElement: HTMLElement | null,
-  bounds: BoardBounds,
-): NoteRect {
-  if (trashElement === null) return { x: 0, y: 0, width: 0, height: 0 };
-  const rect = trashElement.getBoundingClientRect();
-  const topLeft = toBoardPoint(
-    { clientX: rect.left, clientY: rect.top },
-    bounds,
-  );
-  return { x: topLeft.x, y: topLeft.y, width: rect.width, height: rect.height };
 }
 
 function paintNoteElement(element: HTMLElement, from: NoteRect, to: NoteRect) {
@@ -111,12 +94,10 @@ export function useBoardGestures(params: BoardGesturesParams) {
   const captureTargetRef = useRef<HTMLElement | null>(null);
 
   const [creationPreview, setCreationPreview] = useState<NoteRect | null>(null);
-  const [trashActive, setTrashActive] = useState(false);
   const [gestureActive, setGestureActive] = useState(false);
 
   function clearPreviewState() {
     setCreationPreview(null);
-    setTrashActive(false);
     setGestureActive(false);
   }
 
@@ -157,10 +138,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
           break;
         }
         case 'moving': {
-          if (pointInside(releaseBoardPoint, active.trashRect)) {
-            paramsRef.current.onRemoveNote(active.noteId);
-            break;
-          }
           const rect = moveRect(
             active.initialRect,
             active.pointerOrigin,
@@ -263,10 +240,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
           pointerOrigin,
           initialRect,
           boardBounds,
-          trashRect: readTrashRect(
-            paramsRef.current.trashRef.current,
-            boardBounds,
-          ),
         }),
       );
     },
@@ -306,11 +279,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
         { clientX: event.clientX, clientY: event.clientY },
         boardBounds,
       );
-      const trashRect = readTrashRect(
-        paramsRef.current.trashRef.current,
-        boardBounds,
-      );
-      if (pointInside(pointerOrigin, trashRect)) return;
       gestureRef.current = {
         type: 'creating',
         pointerId: event.pointerId,
@@ -356,7 +324,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
               gesture.boardBounds,
             ),
           );
-          setTrashActive(pointInside(point, gesture.trashRect));
           return;
         case 'resizing':
           paintNoteElement(
@@ -436,7 +403,6 @@ export function useBoardGestures(params: BoardGesturesParams) {
     onBoardPointerCancel,
     onBoardLostPointerCapture,
     creationPreview,
-    trashActive,
     gestureActive,
   };
 }

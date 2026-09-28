@@ -16,6 +16,7 @@ interface NoteCardProps {
     event: PointerEvent<HTMLDivElement>,
   ) => void;
   onFocused: (noteId: NoteId) => void;
+  onRemove: (noteId: NoteId) => void;
 }
 
 function NoteCardComponent({
@@ -27,6 +28,7 @@ function NoteCardComponent({
   onHeaderPointerDown,
   onResizePointerDown,
   onFocused,
+  onRemove,
 }: NoteCardProps) {
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const { rect } = note;
@@ -51,7 +53,19 @@ function NoteCardComponent({
       <div
         className="noteHeader"
         onPointerDown={(event) => onHeaderPointerDown(note.id, event)}
-      />
+      >
+        {selected ? (
+          <button
+            type="button"
+            className="noteDelete"
+            aria-label="Delete note"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onRemove(note.id)}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
 
       <textarea
         ref={editorRef}
